@@ -33,15 +33,13 @@ import java.util.HashMap;
 import java.util.Objects;
 
 @Slf4j
-public class PubSink extends AbstractSink implements Configurable {
-    private SinkCounter sinkCounter = new SinkCounter(PubSink.class.getName() + "_Counter");
-
-    private static final String CONFIG_SUBSCRIBER_CLASS_NAME = "SubSource";
-    private static final String CONFIG_MAX_REQUEST = "maxRequest";
-    private static final String CONFIG_SUB_SOURCE_IDX = "subSourceIdx";
-
+abstract class AbstractPubSink extends AbstractSink implements Configurable {
+    protected static final String CONFIG_SUBSCRIBER_CLASS_NAME = "SubSource";
+    protected static final String CONFIG_MAX_REQUEST = "maxRequest";
+    protected static final String CONFIG_SUB_SOURCE_IDX = "subSourceIdx";
+    protected SinkCounter sinkCounter = new SinkCounter(AbstractPubSink.class.getName() + "_Counter");
     //maxRequest는 채널의 채널의 transaction size를 초과 할 수 없음. transaction size를 벗어나기 때문에 에러 발생.
-    private long maxRequest = Long.MAX_VALUE;
+    protected long maxRequest = Long.MAX_VALUE;
 
     //SubScriber를 가지고 있는 Source Class의 SimpleName
     private String subscriberClassName;
@@ -53,6 +51,8 @@ public class PubSink extends AbstractSink implements Configurable {
     //channel에서 taken한 event를 담아두는 array.
     private ArrayList<Event> reaminEventList = Lists.newArrayList();
 
+    //Sink단에서 이벤트 가공이 필요할 경우 해당 transformEvent override 해서 사용.
+    abstract Event transformEvent(final Event event);
 
     private final Publisher publisher = (subscriber) -> {
         subscriber.onSubscribe(new Subscription() {
@@ -93,6 +93,8 @@ public class PubSink extends AbstractSink implements Configurable {
                         this.sinkCounter.incrementBatchEmptyCount();
                         break;
                     }
+
+                    transformEvent(event);
 
                     if (null == this.eventSubscriber) {
                         //reflection을 이용한 subscriber 등록
